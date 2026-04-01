@@ -117,19 +117,22 @@ function extractUsageFromSSE(eventText: string): UsageData | null {
  */
 export function findUsageInStreamChunk(chunk: string): UsageData | null {
 	const events = chunk.split('\n\n').filter((e) => e.trim())
+	let latestUsage: UsageData | null = null
 
 	for (const event of events) {
 		const usage = extractUsageFromSSE(event)
-		if (usage) return usage
+		if (usage) {
+			latestUsage = usage
+		}
 	}
 
-	return null
+	return latestUsage
 }
 
 /**
  * Calculate cost based on model and usage
  */
-function calculateCost(model: string, usage: UsageData): number | null {
+export function calculateUsageCost(model: string, usage: UsageData): number | null {
 	const pricing: Record<string, { input: number; output: number }> = {
 		'claude-opus-4-5-20251101': { input: 5.0, output: 25.0 },
 		'claude-opus-4-1-20250805': { input: 15.0, output: 75.0 },
@@ -232,7 +235,7 @@ export function logTelemetry(ctx: TelemetryContext): void {
 			attributes['gen_ai.usage.cache_read_input_tokens'] = ctx.usage.cacheReadInputTokens
 		}
 
-		const cost = calculateCost(ctx.request.model, ctx.usage)
+		const cost = calculateUsageCost(ctx.request.model, ctx.usage)
 		if (cost !== null) {
 			attributes['operation.cost'] = cost
 		}

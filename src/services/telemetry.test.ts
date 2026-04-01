@@ -86,6 +86,20 @@ data: {"message": {"usage":
 
 		expect(findUsageInStreamChunk(chunk)).toBeNull()
 	})
+
+	it('should return the latest usage when multiple usage events share one chunk', () => {
+		const chunk = `event: message_start
+data: {"message": {"usage": {"input_tokens": 10, "output_tokens": 0}}}
+
+event: message_delta
+data: {"usage": {"input_tokens": 10, "output_tokens": 120}}
+
+`
+
+		const usage = findUsageInStreamChunk(chunk)
+		expect(usage?.inputTokens).toBe(10)
+		expect(usage?.outputTokens).toBe(120)
+	})
 })
 
 describe('createTelemetryContext', () => {
