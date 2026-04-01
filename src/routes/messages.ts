@@ -15,6 +15,7 @@ import {
 	logTelemetry,
 } from '../services/telemetry.js'
 import { normalizeSseChunk, normalizeToolUseNames } from '../services/tool-name-normalizer.js'
+import { sendUsageMetrics } from '../services/usage-metrics.js'
 import type { MessageCreateParams } from '../types/messages.js'
 
 function canUseStoredTokenFallback(hostHeader: string | undefined): boolean {
@@ -226,6 +227,10 @@ messagesRoute.openapi(messageRoute, async (c) => {
 							success: true,
 							duration,
 						}
+						await sendUsageMetrics(telemetryCtx, {
+							accessToken: token,
+							userAgent: c.req.header('user-agent') ?? undefined,
+						})
 						logTelemetry(telemetryCtx)
 					} catch (error) {
 						controller.error(error)
@@ -267,6 +272,10 @@ messagesRoute.openapi(messageRoute, async (c) => {
 			statusCode: response.status,
 			duration,
 		}
+		await sendUsageMetrics(telemetryCtx, {
+			accessToken: token,
+			userAgent: c.req.header('user-agent') ?? undefined,
+		})
 		logTelemetry(telemetryCtx)
 
 		return c.json(responseData, response.status as 200)
