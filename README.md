@@ -7,7 +7,7 @@
 > This is **NOT** a Claude Code Emulator. I repeat, **NOT**.
 
 > [!CAUTION]
-> **DO NOT use this.** This is extremely dangerous. Anthropic **will** find out. They have ways. They always do. You have been warned.
+> **DO NOT use this.** This is extremely dangerous. It makes Anthropic difficult to ban abusers. Don't use this. You have been warned.
 
 ## Install
 
