@@ -144,7 +144,7 @@ describe('buildAnthropicHeaders', () => {
     const headers = buildAnthropicHeaders(token);
 
     expect(headers['x-stainless-lang']).toBe('js');
-    expect(headers['x-stainless-package-version']).toBe('0.60.0');
+    expect(headers['x-stainless-package-version']).toBe('0.80.0');
     expect(headers['x-stainless-os']).toBe('MacOS');
     expect(headers['x-stainless-arch']).toBe('arm64');
     expect(headers['x-stainless-runtime']).toBe('node');
@@ -199,7 +199,7 @@ describe('buildAnthropicHeaders', () => {
 
   it('should use default user-agent when not provided', () => {
     const headers = buildAnthropicHeaders(token);
-    expect(headers['user-agent']).toBe('claude-cli/2.1.22 (external, cli)');
+    expect(headers['user-agent']).toBe('claude-cli/2.1.87 (external, cli)');
   });
 
   it('should use provided user-agent when it starts with claude-cli/', () => {
@@ -215,7 +215,7 @@ describe('buildAnthropicHeaders', () => {
     const headers = buildAnthropicHeaders(token, {
       userAgent: customUserAgent,
     });
-    expect(headers['user-agent']).toBe('claude-cli/2.1.22 (external, cli)');
+    expect(headers['user-agent']).toBe('claude-cli/2.1.87 (external, cli)');
   });
 });
 

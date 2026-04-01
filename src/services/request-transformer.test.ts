@@ -194,7 +194,7 @@ describe('transformRequest', () => {
     expect((result.requestBody.tool_choice as { name: string }).name).toBe('get_user_data');
   });
 
-  it('should inject attribution header (cch) into system prompt', async () => {
+  it('should inject attribution header into system prompt without cch', async () => {
     const body: MessageCreateParams = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 1024,
@@ -210,27 +210,30 @@ describe('transformRequest', () => {
     expect(system[0].text).toContain('x-anthropic-billing-header:');
     expect(system[0].text).toContain('cc_version=');
     expect(system[0].text).toContain('cc_entrypoint=cli');
-    expect(system[0].text).toContain('cch=00000');
+    // cch must NOT be present — the attestation hash cannot be forged
+    // from JS userland and including the placeholder is a tell
+    expect(system[0].text).not.toContain('cch=');
   });
 
   it('should compute deterministic fingerprint from message content', () => {
-    const fp1 = computeFingerprint('Hello world', '2.1.22');
-    const fp2 = computeFingerprint('Hello world', '2.1.22');
+    const fp1 = computeFingerprint('Hello world', '2.1.87');
+    const fp2 = computeFingerprint('Hello world', '2.1.87');
     expect(fp1).toBe(fp2);
     expect(fp1.length).toBe(3);
   });
 
   it('should compute different fingerprints for different messages', () => {
-    const fp1 = computeFingerprint('Hello world', '2.1.22');
-    const fp2 = computeFingerprint('Goodbye world', '2.1.22');
+    const fp1 = computeFingerprint('Hello world', '2.1.87');
+    const fp2 = computeFingerprint('Goodbye world', '2.1.87');
     expect(fp1).not.toBe(fp2);
   });
 
-  it('should build attribution header with correct format', () => {
+  it('should build attribution header without cch field', () => {
     const header = getAttributionHeader('abc');
     expect(header).toBe(
-      'x-anthropic-billing-header: cc_version=2.1.22.abc; cc_entrypoint=cli; cch=00000;'
+      'x-anthropic-billing-header: cc_version=2.1.87.abc; cc_entrypoint=cli;'
     );
+    expect(header).not.toContain('cch=');
   });
 
   it('should vary attribution header fingerprint based on user message', async () => {
