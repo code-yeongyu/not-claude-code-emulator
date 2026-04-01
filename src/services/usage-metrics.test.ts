@@ -271,4 +271,192 @@ describe('messagesRoute usage metrics integration', () => {
       'claude_code.cost.usage'
     );
   });
+
+  it('given a streamed usage event split across reads when handling the route then it still posts usage metrics', async () => {
+    process.env.ANTHROPIC_OAUTH_TOKEN = 'sk-ant-oat01-test-token';
+    process.env.ANTHROPIC_OAUTH_BASE_URL = 'https://api.anthropic.com';
+
+    const fetchCalls: Array<{ url: string; method: string; body: string | null }> = [];
+
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+        const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+        const body = typeof init?.body === 'string' ? init.body : null;
+        fetchCalls.push({ url, method, body });
+
+        if (url.endsWith('/api/claude_code/organizations/metrics_enabled')) {
+          return new Response(JSON.stringify({ metrics_logging_enabled: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+
+        if (url.endsWith('/api/claude_code/metrics')) {
+          return new Response('{}', { status: 200 });
+        }
+
+        if (url.endsWith('/v1/messages?beta=true')) {
+          const encoder = new TextEncoder();
+          const bodyStream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  'event: message_start\ndata: {"message": {"usage": {"input_tokens": 10,'
+                )
+              );
+              controller.enqueue(
+                encoder.encode(' "output_tokens": 20}}}\n\nevent: message_stop\ndata: {}\n\n')
+              );
+              controller.close();
+            },
+          });
+
+          return new Response(bodyStream, {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+          });
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`);
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+
+    const request = new Request('http://localhost/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        host: 'localhost',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 64,
+        stream: true,
+        messages: [{ role: 'user', content: 'Say hello' }],
+      }),
+    });
+
+    const response = await messagesRoute.request(request);
+    expect(response.status).toBe(200);
+    await response.text();
+
+    const metricsCall = fetchCalls.find((call) => call.url.endsWith('/api/claude_code/metrics'));
+    expect(metricsCall).toBeDefined();
+
+    const metricsPayload = JSON.parse(metricsCall?.body ?? '{}') as {
+      metrics?: Array<{
+        name: string;
+        data_points?: Array<{ value: number; attributes: Record<string, string> }>;
+      }>;
+    };
+    const tokenMetric = metricsPayload.metrics?.find(
+      (metric) => metric.name === 'claude_code.token.usage'
+    );
+    expect(
+      tokenMetric?.data_points?.find((point) => point.attributes.type === 'input')?.value
+    ).toBe(10);
+    expect(
+      tokenMetric?.data_points?.find((point) => point.attributes.type === 'output')?.value
+    ).toBe(20);
+  });
+
+  it('given streamed start and delta usage when delta zeros input fields then it preserves the start values in metrics', async () => {
+    process.env.ANTHROPIC_OAUTH_TOKEN = 'sk-ant-oat01-test-token';
+    process.env.ANTHROPIC_OAUTH_BASE_URL = 'https://api.anthropic.com';
+
+    const fetchCalls: Array<{ url: string; method: string; body: string | null }> = [];
+
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+        const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+        const body = typeof init?.body === 'string' ? init.body : null;
+        fetchCalls.push({ url, method, body });
+
+        if (url.endsWith('/api/claude_code/organizations/metrics_enabled')) {
+          return new Response(JSON.stringify({ metrics_logging_enabled: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+
+        if (url.endsWith('/api/claude_code/metrics')) {
+          return new Response('{}', { status: 200 });
+        }
+
+        if (url.endsWith('/v1/messages?beta=true')) {
+          const encoder = new TextEncoder();
+          const bodyStream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              // given
+              controller.enqueue(
+                encoder.encode(
+                  'event: message_start\ndata: {"message": {"usage": {"input_tokens": 10, "output_tokens": 0, "cache_creation_input_tokens": 4, "cache_read_input_tokens": 3}}}\n\n'
+                )
+              );
+              controller.enqueue(
+                encoder.encode(
+                  'event: message_delta\ndata: {"usage": {"input_tokens": 0, "output_tokens": 20, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}}\n\n'
+                )
+              );
+              controller.close();
+            },
+          });
+
+          return new Response(bodyStream, {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+          });
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`);
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+
+    // when
+    const response = await messagesRoute.request(
+      new Request('http://localhost/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          host: 'localhost',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5-20250929',
+          max_tokens: 64,
+          stream: true,
+          messages: [{ role: 'user', content: 'Say hello' }],
+        }),
+      })
+    );
+    await response.text();
+
+    // then
+    const metricsCall = fetchCalls.find((call) => call.url.endsWith('/api/claude_code/metrics'));
+    expect(metricsCall).toBeDefined();
+
+    const metricsPayload = JSON.parse(metricsCall?.body ?? '{}') as {
+      metrics?: Array<{
+        name: string;
+        data_points?: Array<{ value: number; attributes: Record<string, string> }>;
+      }>;
+    };
+    const tokenMetric = metricsPayload.metrics?.find(
+      (metric) => metric.name === 'claude_code.token.usage'
+    );
+    expect(
+      tokenMetric?.data_points?.find((point) => point.attributes.type === 'input')?.value
+    ).toBe(10);
+    expect(
+      tokenMetric?.data_points?.find((point) => point.attributes.type === 'cacheCreation')?.value
+    ).toBe(4);
+    expect(
+      tokenMetric?.data_points?.find((point) => point.attributes.type === 'cacheRead')?.value
+    ).toBe(3);
+    expect(
+      tokenMetric?.data_points?.find((point) => point.attributes.type === 'output')?.value
+    ).toBe(20);
+  });
 });

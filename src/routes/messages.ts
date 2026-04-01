@@ -13,6 +13,7 @@ import {
 	extractUsageFromJson,
 	findUsageInStreamChunk,
 	logTelemetry,
+	updateStreamUsage,
 } from '../services/telemetry.js'
 import { normalizeSseChunk, normalizeToolUseNames } from '../services/tool-name-normalizer.js'
 import { sendUsageMetrics } from '../services/usage-metrics.js'
@@ -204,18 +205,31 @@ messagesRoute.openapi(messageRoute, async (c) => {
 		if (transformed.requestBody.stream && response.body) {
 			const originalBody = response.body
 			const reader = originalBody.getReader()
+			let usageEventBuffer = ''
 
 			const stream = new ReadableStream({
 				async start(controller) {
 					try {
 						while (true) {
 							const { done, value } = await reader.read()
-							if (done) break
+							if (done) {
+								const finalUsage = findUsageInStreamChunk(usageEventBuffer)
+								if (finalUsage) {
+									telemetryCtx.usage = updateStreamUsage(telemetryCtx.usage, finalUsage)
+								}
+								break
+							}
 
 							const chunk = new TextDecoder().decode(value)
-							const usage = findUsageInStreamChunk(chunk)
-							if (usage) {
-								telemetryCtx.usage = usage
+							usageEventBuffer += chunk
+							const completeEvents = usageEventBuffer.split('\n\n')
+							usageEventBuffer = completeEvents.pop() ?? ''
+
+							for (const event of completeEvents) {
+								const usage = findUsageInStreamChunk(`${event}\n\n`)
+								if (usage) {
+									telemetryCtx.usage = updateStreamUsage(telemetryCtx.usage, usage)
+								}
 							}
 
 							const normalizedChunk = normalizeSseChunk(chunk)
