@@ -1,6 +1,6 @@
 {
   "name": "not-claude-code-emulator",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Hono-based OAuth server for Anthropic API with Claude Code-style OAuth integration",
   "license": "MIT",
   "type": "module",
