@@ -1,5 +1,6 @@
 import { getOAuthConfig } from '../config/oauth.js'
 import type { OAuthTokens } from '../types/oauth.js'
+import { computeCch, hasCchPlaceholder, replaceCchPlaceholder } from './cch.js'
 import { isOAuthTokenExpired, refreshOAuthToken } from './oauth-flow.js'
 import { loadStoredTokens, saveStoredTokens } from './token-store.js'
 
@@ -307,15 +308,29 @@ export async function callAnthropicApi(
 
 	try {
 		const apiBaseUrl = getOAuthConfig().baseApiUrl
-		const sendRequest = async (token: string): Promise<Response> =>
-			fetch(`${apiBaseUrl}${endpoint}`, {
+		const sendRequest = async (token: string): Promise<Response> => {
+			let body = JSON.stringify(payload)
+
+			// Compute and replace the cch placeholder with the xxHash64-based
+			// integrity hash, matching the signing that real Claude Code performs
+			// in Bun's native HTTP stack before sending the request.
+			if (
+				endpoint.includes('/v1/messages') &&
+				hasCchPlaceholder(body)
+			) {
+				const cch = await computeCch(body)
+				body = replaceCchPlaceholder(body, cch)
+			}
+
+			return fetch(`${apiBaseUrl}${endpoint}`, {
 				method: 'POST',
 				headers: {
 					...buildAnthropicHeaders(token, options),
 					'X-Stainless-Retry-Count': '0',
 				},
-				body: JSON.stringify(payload),
+				body,
 			})
+		}
 
 		let res = await sendRequest(resolvedAccessToken)
 
