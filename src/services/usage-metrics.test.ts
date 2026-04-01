@@ -101,7 +101,7 @@ describe('createUsageMetricsPayload', () => {
     expect(costMetric).toBeDefined();
     expect(costMetric?.unit).toBe('USD');
     expect(costMetric?.data_points[0]?.attributes.model).toBe('claude-sonnet-4-5-20250929');
-    expect(costMetric?.data_points[0]?.value).toBeCloseTo(0.033, 6);
+    expect(costMetric?.data_points[0]?.value).toBeCloseTo(0.03459, 6);
   });
 
   it('given a date-less sonnet model when creating payload then it still emits the cost metric', () => {
@@ -113,7 +113,19 @@ describe('createUsageMetricsPayload', () => {
 
     expect(costMetric).toBeDefined();
     expect(costMetric?.data_points[0]?.attributes.model).toBe('claude-sonnet-4-5');
-    expect(costMetric?.data_points[0]?.value).toBeCloseTo(0.033, 6);
+    expect(costMetric?.data_points[0]?.value).toBeCloseTo(0.03459, 6);
+  });
+
+  it('given a sonnet 4.6 model with cache usage when creating payload then it includes cache-aware cost pricing', () => {
+    const telemetryContext = createTelemetryContext();
+    telemetryContext.request.model = 'claude-sonnet-4-6';
+
+    const payload = createUsageMetricsPayload(telemetryContext);
+    const costMetric = payload?.metrics.find((metric) => metric.name === 'claude_code.cost.usage');
+
+    expect(costMetric).toBeDefined();
+    expect(costMetric?.data_points[0]?.attributes.model).toBe('claude-sonnet-4-6');
+    expect(costMetric?.data_points[0]?.value).toBeCloseTo(0.03459, 6);
   });
 });
 
@@ -187,6 +199,48 @@ describe('sendUsageMetrics', () => {
       ).length
     ).toBe(2);
     expect(fetchCalls.some((call) => call.url.endsWith('/api/claude_code/metrics'))).toBe(true);
+  });
+
+  it('given cache-bearing usage when sending metrics then the emitted cost metric includes cache token pricing', async () => {
+    let metricsPayloadBody: string | null = null;
+
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.endsWith('/api/claude_code/organizations/metrics_enabled')) {
+          return new Response(JSON.stringify({ metrics_logging_enabled: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+
+        if (url.endsWith('/api/claude_code/metrics')) {
+          metricsPayloadBody = String(init?.body ?? '{}');
+          return new Response('{}', { status: 200 });
+        }
+
+        throw new Error(`Unexpected fetch: ${url}`);
+      },
+      { preconnect: originalFetch.preconnect }
+    );
+
+    await sendUsageMetrics(createTelemetryContext(), {
+      accessToken: 'sk-ant-oat01-test-token',
+    });
+
+    if (!metricsPayloadBody) {
+      throw new Error('Expected metrics payload to be captured');
+    }
+
+    const metricsPayload = JSON.parse(metricsPayloadBody) as {
+      metrics?: Array<{ name: string; data_points?: Array<{ value: number }> }>;
+    };
+
+    const costMetric = metricsPayload.metrics?.find(
+      (metric) => metric.name === 'claude_code.cost.usage'
+    );
+    expect(costMetric?.data_points?.[0]?.value).toBeCloseTo(0.03459, 6);
   });
 });
 
