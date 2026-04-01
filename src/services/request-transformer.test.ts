@@ -194,7 +194,7 @@ describe('transformRequest', () => {
     expect((result.requestBody.tool_choice as { name: string }).name).toBe('get_user_data');
   });
 
-  it('should inject attribution header into system prompt without cch', async () => {
+  it('should inject attribution header with cch placeholder into system prompt', async () => {
     const body: MessageCreateParams = {
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 1024,
@@ -210,9 +210,9 @@ describe('transformRequest', () => {
     expect(system[0].text).toContain('x-anthropic-billing-header:');
     expect(system[0].text).toContain('cc_version=');
     expect(system[0].text).toContain('cc_entrypoint=cli');
-    // cch must NOT be present — the attestation hash cannot be forged
-    // from JS userland and including the placeholder is a tell
-    expect(system[0].text).not.toContain('cch=');
+    // cch=00000 placeholder should be present — it gets replaced with
+    // the computed xxHash64 integrity hash before the request is sent
+    expect(system[0].text).toContain('cch=00000');
   });
 
   it('should compute deterministic fingerprint from message content', () => {
@@ -228,12 +228,11 @@ describe('transformRequest', () => {
     expect(fp1).not.toBe(fp2);
   });
 
-  it('should build attribution header without cch field', () => {
+  it('should build attribution header with cch placeholder', () => {
     const header = getAttributionHeader('abc');
     expect(header).toBe(
-      'x-anthropic-billing-header: cc_version=2.1.87.abc; cc_entrypoint=cli;'
+      'x-anthropic-billing-header: cc_version=2.1.87.abc; cc_entrypoint=cli; cch=00000;'
     );
-    expect(header).not.toContain('cch=');
   });
 
   it('should vary attribution header fingerprint based on user message', async () => {

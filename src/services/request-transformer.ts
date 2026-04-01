@@ -242,21 +242,19 @@ export function computeFingerprint(messageText: string, version: string): string
  * into the first system prompt block.
  *
  * Format:
- *   x-anthropic-billing-header: cc_version=VERSION.FINGERPRINT; cc_entrypoint=cli;
+ *   x-anthropic-billing-header: cc_version=VERSION.FINGERPRINT; cc_entrypoint=cli; cch=00000;
  *
- * The real Claude Code binary conditionally includes a `cch=00000` placeholder
- * when the NATIVE_CLIENT_ATTESTATION compile-time feature flag is enabled.
- * Bun's native HTTP stack (Zig) then overwrites the zeros with a computed
- * attestation hash before the request leaves the process.
+ * Includes a `cch=00000` placeholder that is replaced with a computed
+ * xxHash64-based integrity hash before the request is sent. The route
+ * handler in messages.ts performs the replacement after serializing
+ * the full request body. The server verifies this token to gate
+ * features like fast mode.
  *
- * Since NATIVE_CLIENT_ATTESTATION is a compile-time flag only present in
- * the official Bun-bundled binary, and the attestation hash cannot be forged
- * from JS userland, we intentionally omit the cch field — matching the
- * behavior of non-official builds where the feature flag evaluates to false.
+ * See: https://a10k.co/b/reverse-engineering-claude-code-cch.html
  */
 export function getAttributionHeader(fingerprint: string): string {
   const version = `${EMULATED_CLI_VERSION}.${fingerprint}`;
-  return `x-anthropic-billing-header: cc_version=${version}; cc_entrypoint=cli;`;
+  return `x-anthropic-billing-header: cc_version=${version}; cc_entrypoint=cli; cch=00000;`;
 }
 
 function injectClaudeCodeSystemMessage(requestBody: MessageCreateParams): void {
