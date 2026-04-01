@@ -21,7 +21,7 @@ export const REQUIRED_BETAS = [
 export const BASE_X_HEADERS: Readonly<Record<string, string>> = Object.freeze({
 	'x-stainless-timeout': '600',
 	'x-stainless-lang': 'js',
-	'x-stainless-package-version': '0.60.0',
+	'x-stainless-package-version': '0.80.0',
 	'x-stainless-os': 'MacOS',
 	'x-stainless-arch': 'arm64',
 	'x-stainless-runtime': 'node',
@@ -205,7 +205,7 @@ export function buildAnthropicHeaders(
 	const apiBaseUrl = new URL(getOAuthConfig().baseApiUrl)
 	const userAgent = options.userAgent?.startsWith('claude-cli/')
 		? options.userAgent
-		: 'claude-cli/2.1.22 (external, cli)'
+		: 'claude-cli/2.1.87 (external, cli)'
 
 	const allBetas = [...new Set([...(options.anthropicBetaHeaders || []), ...REQUIRED_BETAS])]
 

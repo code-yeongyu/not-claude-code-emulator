@@ -194,7 +194,7 @@ const FINGERPRINT_SALT = '59cf53e54c78';
  * The emulated Claude CLI version reported in attribution headers
  * and user-agent strings.
  */
-const EMULATED_CLI_VERSION = '2.1.22';
+const EMULATED_CLI_VERSION = '2.1.87';
 
 /**
  * Extract the text content from the first user message in the request.
@@ -242,17 +242,21 @@ export function computeFingerprint(messageText: string, version: string): string
  * into the first system prompt block.
  *
  * Format:
- *   x-anthropic-billing-header: cc_version=VERSION.FINGERPRINT; cc_entrypoint=cli; cch=00000;
+ *   x-anthropic-billing-header: cc_version=VERSION.FINGERPRINT; cc_entrypoint=cli;
  *
- * The real Claude Code binary uses Bun's native HTTP stack (Zig) to
- * overwrite the `cch=00000` placeholder with a computed attestation hash
- * before the request leaves the process. Since we cannot replicate this
- * native attestation, we include the placeholder as-is. The server's
- * `_parse_cc_header` reportedly tolerates unknown/unresolved fields.
+ * The real Claude Code binary conditionally includes a `cch=00000` placeholder
+ * when the NATIVE_CLIENT_ATTESTATION compile-time feature flag is enabled.
+ * Bun's native HTTP stack (Zig) then overwrites the zeros with a computed
+ * attestation hash before the request leaves the process.
+ *
+ * Since NATIVE_CLIENT_ATTESTATION is a compile-time flag only present in
+ * the official Bun-bundled binary, and the attestation hash cannot be forged
+ * from JS userland, we intentionally omit the cch field — matching the
+ * behavior of non-official builds where the feature flag evaluates to false.
  */
 export function getAttributionHeader(fingerprint: string): string {
   const version = `${EMULATED_CLI_VERSION}.${fingerprint}`;
-  return `x-anthropic-billing-header: cc_version=${version}; cc_entrypoint=cli; cch=00000;`;
+  return `x-anthropic-billing-header: cc_version=${version}; cc_entrypoint=cli;`;
 }
 
 function injectClaudeCodeSystemMessage(requestBody: MessageCreateParams): void {
