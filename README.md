@@ -1,5 +1,9 @@
 # not-claude-code-emulator
 
+> **This project is archived.** For a more comprehensive solution that supports Claude Code, Gemini CLI, ChatGPT Codex, and more, check out [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI).
+
+---
+
 OAuth proxy server built with [Hono](https://hono.dev) and [Bun](https://bun.sh). Provides an OpenAPI-documented Messages API with built-in token management and streaming support.
 
 ## Install
