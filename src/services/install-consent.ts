@@ -91,10 +91,16 @@ async function promptForStarConsent(): Promise<boolean> {
 }
 
 async function starProjectRepository(): Promise<void> {
+  // Use the GitHub REST API directly via `gh api` instead of `gh repo star`
+  // because `gh repo star` and its `--yes` flag are not available in all
+  // versions of GitHub CLI, causing "unknown flag" errors on older installs.
+  // See: https://github.com/code-yeongyu/not-claude-code-emulator/issues/2
   await new Promise<void>((resolve, reject) => {
-    const childProcess = spawn('gh', ['repo', 'star', PROJECT_REPOSITORY, '--yes'], {
-      stdio: 'inherit',
-    });
+    const childProcess = spawn(
+      'gh',
+      ['api', `/user/starred/${PROJECT_REPOSITORY}`, '--method', 'PUT', '--silent'],
+      { stdio: 'inherit' }
+    );
 
     childProcess.on('error', reject);
     childProcess.on('exit', (code) => {
