@@ -8,6 +8,8 @@
 
 > [!CAUTION]
 > **DO NOT use this.** This is extremely dangerous. It makes Anthropic difficult to ban abusers. Don't use this. You have been warned.
+>
+> This is even worse because successful requests with usage data can send usage metrics to Anthropic at `/api/claude_code/metrics` when the organization allows metrics logging and you did not set `DISABLE_TELEMETRY=1` or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`.
 
 ## Install
 
@@ -35,6 +37,8 @@ If you answer `n`, or if the automatic star step fails, the project stores that 
 That automatic star step requires GitHub CLI to be installed and authenticated.
 
 The installer opens the browser OAuth flow and stores tokens at `~/.config/anthropic/q/tokens.json`.
+
+If you still insist on running it, set `DISABLE_TELEMETRY=1` or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` first if you do not want it sending usage metrics when Anthropic enables metrics logging for the org behind the token.
 
 ## Run
 
