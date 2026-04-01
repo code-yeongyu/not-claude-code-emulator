@@ -129,6 +129,28 @@ export function findUsageInStreamChunk(chunk: string): UsageData | null {
 	return latestUsage
 }
 
+export function updateStreamUsage(
+	currentUsage: UsageData | undefined,
+	nextUsage: UsageData,
+): UsageData {
+	return {
+		inputTokens:
+			nextUsage.inputTokens > 0
+				? nextUsage.inputTokens
+				: (currentUsage?.inputTokens ?? nextUsage.inputTokens),
+		outputTokens: nextUsage.outputTokens,
+		thinkingTokens: nextUsage.thinkingTokens ?? currentUsage?.thinkingTokens,
+		cacheCreationInputTokens:
+			nextUsage.cacheCreationInputTokens !== undefined && nextUsage.cacheCreationInputTokens > 0
+				? nextUsage.cacheCreationInputTokens
+				: (currentUsage?.cacheCreationInputTokens ?? nextUsage.cacheCreationInputTokens),
+		cacheReadInputTokens:
+			nextUsage.cacheReadInputTokens !== undefined && nextUsage.cacheReadInputTokens > 0
+				? nextUsage.cacheReadInputTokens
+				: (currentUsage?.cacheReadInputTokens ?? nextUsage.cacheReadInputTokens),
+	}
+}
+
 /**
  * Calculate cost based on model and usage
  */
