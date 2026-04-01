@@ -1,8 +1,20 @@
 {
   "name": "not-claude-code-emulator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Hono-based OAuth server for Anthropic API with Claude Code-style OAuth integration",
+  "license": "MIT",
   "type": "module",
+  "bin": {
+    "not-claude-code-emulator": "src/cli.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/services/tests",
+    "README.md",
+    ".env.template",
+    "claude-code-emulator.png"
+  ],
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
@@ -13,7 +25,16 @@
     "format": "bunx --bun prettier --write .",
     "test": "bun test",
     "docs:generate": "bun run src/scripts/generate-openapi.ts",
-    "verify:token": "bun run src/cli.ts verify-token"
+    "verify:token": "bun run src/cli.ts verify-token",
+    "prepack": "bun run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/code-yeongyu/not-claude-code-emulator.git"
+  },
+  "homepage": "https://github.com/code-yeongyu/not-claude-code-emulator#readme",
+  "bugs": {
+    "url": "https://github.com/code-yeongyu/not-claude-code-emulator/issues"
   },
   "dependencies": {
     "@hono/zod-openapi": "^0.18.0",
